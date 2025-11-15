@@ -110,6 +110,7 @@ impl<'a> AstroMdnsResponder<'a> {
                 } else {
                     format!("{}.{}", service.service, service.protocol)
                 };
+                info!("Registering mDNS service: `{}` on port {}", composite_service_type, service.port);
 
                 let mut builder = DNSServiceBuilder::new(&composite_service_type, service.port)
                     .with_name(service.name);
@@ -119,8 +120,10 @@ impl<'a> AstroMdnsResponder<'a> {
                     builder = builder.with_key_value(kvs.0.to_string(), kvs.1.to_string());
                 }
 
-                let svc = builder.register().map_err(|_| ErrorCode::MdnsError)?;
-
+                let svc = builder.register().map_err(|e| {
+                    error!("MDNS Error: {e:?}");
+                    ErrorCode::MdnsError
+                })?;
                 Ok(svc)
             },
         )

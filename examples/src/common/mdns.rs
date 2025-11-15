@@ -17,8 +17,11 @@
 
 //! A module containing the mDNS code used in the examples
 
+use network_interface::{NetworkInterface, NetworkInterfaceConfig};
+use rs_matter::dm::clusters::gen_diag::AttributeId::NetworkInterfaces;
 use rs_matter::error::Error;
 use rs_matter::Matter;
+use std::net::IpAddr;
 
 pub async fn run_mdns(matter: &Matter<'_>) -> Result<(), Error> {
     #[cfg(feature = "astro-dnssd")]
@@ -71,45 +74,83 @@ async fn run_builtin_mdns(matter: &Matter<'_>) -> Result<(), Error> {
     #[inline(never)]
     fn initialize_network() -> Result<(Ipv4Addr, Ipv6Addr, u32), Error> {
         use log::error;
-        use nix::{net::if_::InterfaceFlags, sys::socket::SockaddrIn6};
+        // use nix::{net::if_::InterfaceFlags, sys::socket::SockaddrIn6};
         use rs_matter::error::ErrorCode;
+        // let interfaces = || {
+        //     nix::ifaddrs::getifaddrs().unwrap().filter(|ia| {
+        //         ia.flags
+        //             .contains(InterfaceFlags::IFF_UP | InterfaceFlags::IFF_BROADCAST)
+        //             && !ia
+        //                 .flags
+        //                 .intersects(InterfaceFlags::IFF_LOOPBACK | InterfaceFlags::IFF_POINTOPOINT)
+        //     })
+        // };
         let interfaces = || {
-            nix::ifaddrs::getifaddrs().unwrap().filter(|ia| {
-                ia.flags
-                    .contains(InterfaceFlags::IFF_UP | InterfaceFlags::IFF_BROADCAST)
-                    && !ia
-                        .flags
-                        .intersects(InterfaceFlags::IFF_LOOPBACK | InterfaceFlags::IFF_POINTOPOINT)
-            })
+            // TODO filter interface
+            NetworkInterface::show()
+                .expect("Network interfaces list issue")
         };
 
         // A quick and dirty way to get a network interface that has a link-local IPv6 address assigned as well as a non-loopback IPv4
         // Most likely, this is the interface we need
         // (as opposed to all the docker and libvirt interfaces that might be assigned on the machine and which seem by default to be IPv4 only)
-        let (iname, ip, ipv6) = interfaces()
-            .filter_map(|ia| {
-                ia.address
-                    .and_then(|addr| addr.as_sockaddr_in6().map(SockaddrIn6::ip))
-                    .map(|ipv6| (ia.interface_name, ipv6))
-            })
-            .filter_map(|(iname, ipv6)| {
-                interfaces()
-                    .filter(|ia2| ia2.interface_name == iname)
-                    .find_map(|ia2| {
-                        ia2.address
-                            .and_then(|addr| addr.as_sockaddr_in().map(|addr| addr.ip().into()))
-                            .map(|ip: std::net::Ipv4Addr| (iname.clone(), ip, ipv6))
-                    })
-            })
-            .next()
-            .ok_or_else(|| {
-                error!("Cannot find network interface suitable for mDNS broadcasting");
-                ErrorCode::StdIoError
-            })?;
+        // let (iname, ip, ipv6) = interfaces()
+        //     .filter_map(|ia| {
+        //         ia.addr.iter()
+        //             .and_then(|addr| addr.as_sockaddr_in6().map(SockaddrIn6::ip))
+        //             .map(|ipv6| (ia.name, ipv6))
+        //     })
+        //     .filter_map(|(iname, ipv6)| {
+        //         interfaces()
+        //             .filter(|ia2| ia2.name == iname)
+        //             .find_map(|ia2| {
+        //                 ia2.addr
+        //                     .and_then(|addr| addr.as_sockaddr_in().map(|addr| addr.ip().into()))
+        //                     .map(|ip: std::net::Ipv4Addr| (iname.clone(), ip, ipv6))
+        //             })
+        //     })
+        //     .next()
+        //     .ok_or_else(|| {
+        //         error!("Cannot find network interface suitable for mDNS broadcasting");
+        //         ErrorCode::StdIoError
+        //     })?;
 
-        info!("Will use network interface {iname} with {ip}/{ipv6} for mDNS",);
+        let binding = NetworkInterface::show()
+            .expect("x1");
+        let all_names: Vec<&str> = binding
+            .iter()
+            .map(|iface| iface.name.as_str())
+            .collect();
+        println!("All interfaces: {:?}", all_names);
+        let name = "WiFi";  // TODO select right intetrface
 
-        Ok((ip.octets().into(), ipv6.octets().into(), 0 as _))
+        let mut ip = None;
+        let mut ipv6 = None;
+
+        for iface in NetworkInterface::show()
+            .expect("x1")
+            .iter()
+            .find(|iface| iface.name == name)
+        {
+            for addr in &iface.addr {
+                match addr.ip() {
+                    IpAddr::V4(ipv4) => {
+                        ip = Some(ipv4);
+                    }
+                    IpAddr::V6(ipv6x) => {
+                        ipv6 = Some(ipv6x);
+                    }
+                }
+            }
+        }
+
+        info!("Will use network interface {name} with {ip:?}/{ipv6:?} for mDNS",);
+
+        Ok((
+            ip.unwrap().octets().into(),
+            ipv6.unwrap().octets().into(),
+            0 as _,
+        ))
     }
 
     let (ipv4_addr, ipv6_addr, interface) = initialize_network()?;

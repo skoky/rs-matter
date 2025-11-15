@@ -154,6 +154,7 @@ x509-cert = { version = "0.2", default-features = false, features = ["pem"], opt
 rand = { version = "0.8", optional = true, default-features = false, features = ["std", "std_rng"] }
 async-io = { version = "2", optional = true, default-features = false }
 async-compat = { version = "0.2", optional = true, default-features = false }
+network-interface = "2"
 
 # OS
 zbus = { version = "5.8", optional = true }

@@ -33,7 +33,6 @@ use rs_matter::dm::clusters::on_off::{self, test::TestOnOffDeviceLogic, OnOffHoo
 use rs_matter::dm::devices::test::{TEST_DEV_ATT, TEST_DEV_COMM, TEST_DEV_DET};
 use rs_matter::dm::devices::{DEV_TYPE_AGGREGATOR, DEV_TYPE_BRIDGED_NODE, DEV_TYPE_ON_OFF_LIGHT};
 use rs_matter::dm::endpoints;
-use rs_matter::dm::networks::unix::UnixNetifs;
 use rs_matter::dm::subscriptions::DefaultSubscriptions;
 use rs_matter::dm::{
     Async, AsyncHandler, AsyncMetadata, Cluster, DataModel, Dataver, EmptyHandler, Endpoint,
@@ -49,7 +48,8 @@ use rs_matter::transport::MATTER_SOCKET_BIND_ADDR;
 use rs_matter::utils::select::Coalesce;
 use rs_matter::utils::storage::pooled::PooledBuffers;
 use rs_matter::{clusters, devices, with, Matter, MATTER_PORT};
-
+use rs_matter::dm::clusters::gen_diag::NetifDiag;
+use rs_matter::dm::networks::windows::WindowsNetnitfs;
 use crate::bridged_device_basic_information::ClusterHandler as _;
 
 rs_matter::import!(BridgedDeviceBasicInformation);
@@ -86,12 +86,18 @@ fn main() -> Result<(), Error> {
         TestOnOffDeviceLogic::new(false),
     );
 
+    #[cfg(windows)]
+    let netinf = WindowsNetnitfs{};
+
+    #[cfg(linux)]
+    let netinf = UnixNetnitfs{};
+
     // Create the Data Model instance
     let dm = DataModel::new(
         &matter,
         &buffers,
         &subscriptions,
-        dm_handler(&matter, &on_off_handler_ep2, &on_off_handler_ep3),
+        dm_handler(&matter, &netinf, &on_off_handler_ep2, &on_off_handler_ep3),
     );
 
     // Create a default responder capable of handling up to 3 subscriptions
@@ -192,8 +198,9 @@ const NODE: Node<'static> = Node {
 };
 
 /// The Data Model handler + meta-data for our Matter Bridge.
-fn dm_handler<'a, OH: OnOffHooks, LH: LevelControlHooks>(
+fn dm_handler<'a, OH: OnOffHooks, LH: LevelControlHooks, ND: NetifDiag>(
     matter: &Matter<'_>,
+    net_intfcs: &'a ND,
     on_off_ep2: &'a on_off::OnOffHandler<'a, OH, LH>,
     on_off_ep3: &'a on_off::OnOffHandler<'a, OH, LH>,
 ) -> impl AsyncMetadata + AsyncHandler + 'a {
@@ -201,7 +208,7 @@ fn dm_handler<'a, OH: OnOffHooks, LH: LevelControlHooks>(
         NODE,
         endpoints::with_eth(
             &(),
-            &UnixNetifs,
+            net_intfcs,
             matter.rand(),
             endpoints::with_sys(
                 &false,

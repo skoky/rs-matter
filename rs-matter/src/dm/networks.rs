@@ -22,6 +22,10 @@ use core::future::Future;
 pub mod eth;
 #[cfg(all(unix, feature = "os", not(target_os = "espidf")))]
 pub mod unix;
+
+#[cfg(windows)]
+pub mod windows;
+
 pub mod wireless;
 
 /// A generic trait for network change notifications.
