@@ -15,6 +15,7 @@
  *    limitations under the License.
  */
 
+use std::net::SocketAddrV4;
 use core::fmt::Write;
 use core::future::Future;
 use core::net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV6};
@@ -33,6 +34,9 @@ pub mod resolve;
 #[cfg(feature = "zeroconf")]
 pub mod zeroconf;
 
+#[cfg(feature = "mdns-ds")]
+pub mod mdns_windows;
+
 /// The standard mDNS IPv6 broadcast address
 pub const MDNS_IPV6_BROADCAST_ADDR: Ipv6Addr = Ipv6Addr::new(0xff02, 0, 0, 0, 0, 0, 0, 0x00fb);
 
@@ -43,8 +47,10 @@ pub const MDNS_IPV4_BROADCAST_ADDR: Ipv4Addr = Ipv4Addr::new(224, 0, 0, 251);
 pub const MDNS_PORT: u16 = 5353;
 
 /// A default bind address for mDNS sockets. Binds to all available interfaces
-pub const MDNS_SOCKET_DEFAULT_BIND_ADDR: SocketAddr =
+pub const MDNS_SOCKET_DEFAULT_BIND_ADDR_V6: SocketAddr =
     SocketAddr::V6(SocketAddrV6::new(Ipv6Addr::UNSPECIFIED, MDNS_PORT, 0, 0));
+pub const MDNS_SOCKET_DEFAULT_BIND_ADDR: SocketAddr =
+    SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, MDNS_PORT));
 
 /// A trait for resolving Matter nodes to socket addresses over mDNS
 pub trait MdnsResolver {

@@ -54,9 +54,14 @@ pub async fn run_mdns(matter: &Matter<'_>) -> Result<(), Error> {
         feature = "avahi",
         feature = "resolve",
         feature = "zeroconf",
-        feature = "astro-dnssd"
+        feature = "astro-dnssd",
+        feature = "mdns-ds",
     )))]
     run_builtin_mdns(matter).await?;
+
+    #[cfg(feature = "mdns-ds")]
+    rs_matter::transport::network::mdns::mdns_windows::MdnsDsResponder::new(matter).run()
+        .await?;
 
     Ok(())
 }
@@ -73,6 +78,7 @@ async fn run_builtin_mdns(matter: &Matter<'_>) -> Result<(), Error> {
     // Replace with your own network initialization for e.g. `no_std` environments
     #[inline(never)]
     fn initialize_network() -> Result<(Ipv4Addr, Ipv6Addr, u32), Error> {
+        println!("Using builtin mDNS");
         use log::error;
         // use nix::{net::if_::InterfaceFlags, sys::socket::SockaddrIn6};
         use rs_matter::error::ErrorCode;
@@ -122,7 +128,8 @@ async fn run_builtin_mdns(matter: &Matter<'_>) -> Result<(), Error> {
             .map(|iface| iface.name.as_str())
             .collect();
         println!("All interfaces: {:?}", all_names);
-        let name = "WiFi";  // TODO select right intetrface
+        // let name = "WiFi";  // TODO select right intetrface
+        let name = "Ethernet 2";  // TODO select right intetrface
 
         let mut ip = None;
         let mut ipv6 = None;
@@ -160,6 +167,8 @@ async fn run_builtin_mdns(matter: &Matter<'_>) -> Result<(), Error> {
         MDNS_IPV4_BROADCAST_ADDR, MDNS_IPV6_BROADCAST_ADDR, MDNS_SOCKET_DEFAULT_BIND_ADDR,
     };
 
+    println!("Starting socket on {MDNS_SOCKET_DEFAULT_BIND_ADDR}");
+
     // NOTE:
     // When using a custom UDP stack (e.g. for `no_std` environments), replace with a UDP socket bind + multicast join for your custom UDP stack
     // The returned socket should be splittable into two halves, where each half implements `UdpSend` and `UdpReceive` respectively
@@ -167,10 +176,17 @@ async fn run_builtin_mdns(matter: &Matter<'_>) -> Result<(), Error> {
     socket
         .get_ref()
         .join_multicast_v6(&MDNS_IPV6_BROADCAST_ADDR, interface)?;
-    socket
-        .get_ref()
-        .join_multicast_v4(&MDNS_IPV4_BROADCAST_ADDR, &ipv4_addr)?;
+    // socket
+    //     .get_ref()
+    //     .join_multicast_v4(&MDNS_IPV4_BROADCAST_ADDR, &ipv4_addr)?;
 
+
+    // println!("Broadcast ipv4 addr {MDNS_IPV4_BROADCAST_ADDR}, ipv4 {ipv4_addr}");
+    // socket
+    //     .get_ref()
+    //     .join_multicast_v4(&MDNS_IPV4_BROADCAST_ADDR, &ipv4_addr)?;
+
+    println!("Preparing responder");
     BuiltinMdnsResponder::new(matter)
         .run(
             &socket,
