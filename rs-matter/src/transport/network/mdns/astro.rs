@@ -102,10 +102,10 @@ impl<'a> AstroMdnsResponder<'a> {
             |service| {
                 let composite_service_type = if !service.service_subtypes.is_empty() {
                     format!(
-                        "{}.{},{}",
+                        "{}.{}", // ,{}",
                         service.service,
                         service.protocol,
-                        service.service_subtypes.join(",")
+                        // service.service_subtypes.join(",")
                     )
                 } else {
                     format!("{}.{}", service.service, service.protocol)
@@ -119,6 +119,7 @@ impl<'a> AstroMdnsResponder<'a> {
                     trace!("mDNS TXT key {} val {}", kvs.0, kvs.1);
                     builder = builder.with_key_value(kvs.0.to_string(), kvs.1.to_string());
                 }
+                // builder = builder.with_host("10.0.10.44");
 
                 let svc = builder.register().map_err(|e| {
                     error!("MDNS Error: {e:?}");

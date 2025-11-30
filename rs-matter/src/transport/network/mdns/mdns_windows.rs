@@ -62,28 +62,28 @@ impl<'a> MdnsDsResponder<'a> {
             if !self.services.contains_key(service) {
                 info!("Registering mDNS service: {:?}", service);
                 let registered = self.register(service)?;
-                self.services.insert(service.clone(), registered);
+                // self.services.insert(service.clone(), registered);
             }
         }
 
-        // loop {
-        //     let removed = self
-        //         .services
-        //         .iter()
-        //         .find(|(service, _)| !services.contains(service));
-        //
-        //     if let Some((service, _)) = removed {
-        //         info!("Deregistering mDNS service: {:?}", service);
-        //         self.services.remove(&service.clone());
-        //     } else {
-        //         break;
-        //     }
-        // }
+        loop {
+            let removed = self
+                .services
+                .iter()
+                .find(|(service, _)| !services.contains(service));
+
+            if let Some((service, _)) = removed {
+                info!("Deregistering mDNS service: {:?}", service);
+                self.services.remove(&service.clone());
+            } else {
+                break;
+            }
+        }
 
         Ok(())
     }
 
-    fn register(&mut self, service: &MatterMdnsService) -> Result<MatterConfig, Error> {
+    fn register(&mut self, service: &MatterMdnsService) -> Result<(), Error> {
         let service = Service::call_with(
             service,
             self.matter.dev_det(),
@@ -93,75 +93,28 @@ impl<'a> MdnsDsResponder<'a> {
                 let mdns = ServiceDaemon::new().expect("Failed to create mDNS daemon");
                 let mut props = HashMap::new();
 
+                info!("Main service type: {}", main_service_type);
                 for kvs in service.txt_kvs {
                     // println!("mDNS TXT key {} val {}", kvs.0, kvs.1);
                     props.insert(kvs.0.to_string(), kvs.1.to_string());
                 }
 
-                let mst = "_L3840,_S15,_V65521P32769,_CM._matterc._udp.local.";
-
                 let main_info = ServiceInfo::new(
                     main_service_type.as_str(),
-                    "432AB907F2F5D3EF",
-                    "nuc.local.",         // config.host_name.as_str(),
-                    "10.0.10.117", // config.ip_address.clone(),
-                    service.port,  // config.port,
-                    props.clone(),           // &txt_refs[..],
+                    service.name,
+                    "MT-NTB-DHM_2F9.local.",
+                    "10.0.10.11",
+                    service.port,
+                    props.clone(),
                 )
                 .expect("Valid main service");
                 mdns.register(main_info).expect("Failed to register Main");
-
-                let info = ServiceInfo::new(
-                    mst,
-                    "432AB907F2F5D3EF",
-                    "nuc.local.",
-                    "10.0.10.117",
-                    service.port,
-                    props.clone(),
-                ).unwrap();
-                mdns.register(info).expect("Failed to register subtype");
-
-                for kvs in service.txt_kvs {
-                    let sub_type = format!("_{}{}._sub.{}", kvs.0.to_string(), kvs.1.to_string(), main_service_type);
-                    println!("Subtype: {sub_type}");
-                    let info = ServiceInfo::new(
-                        &sub_type,
-                        "432AB907F2F5D3EF",
-                        "nuc.local.",
-                        "10.0.10.117",
-                        service.port,
-                        props.clone(),
-                    )
-                        .unwrap();
-                    mdns.register(info).expect("Failed to register subtype");
-                }
 
                 Ok(())
             },
         );
 
-        // [2025-11-29T18:12:11Z INFO  rs_matter::transport::network::mdns::mdns_windows] Registering mDNS service: Commissionable { id: 7099960846431634799, discriminator: 3840 }
-        // Subtype: _D3840._sub._matterc._udp.local.
-        //     Subtype: _CM1._sub._matterc._udp.local.
-        //     Subtype: _VP65521+32769._sub._matterc._udp.local.
-        //     Subtype: _SAI300._sub._matterc._udp.local.
-        //     Subtype: _SII5000._sub._matterc._udp.local.
-        //     Subtype: _DNMyTest._sub._matterc._udp.local.
-        //     registering end
-
-        let config = MatterConfig {
-            discriminator: 0,
-            passcode: 0,
-            vendor_id: 0,
-            product_id: 0,
-            instance_name: "".to_string(),
-            host_name: "".to_string(),
-            ip_address: "".to_string(),
-            port: 0,
-        };
-        println!("registering end");
-
-        Ok(config)
+        Ok(())
     }
 }
 

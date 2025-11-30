@@ -89,7 +89,7 @@ fn main() -> Result<(), Error> {
     #[cfg(windows)]
     let netinf = WindowsNetnitfs{};
 
-    #[cfg(linux)]
+    #[cfg(target_os="linux")]
     let netinf = UnixNetnitfs{};
 
     // Create the Data Model instance

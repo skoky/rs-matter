@@ -18,7 +18,6 @@
 //! A module containing the mDNS code used in the examples
 
 use network_interface::{NetworkInterface, NetworkInterfaceConfig};
-use rs_matter::dm::clusters::gen_diag::AttributeId::NetworkInterfaces;
 use rs_matter::error::Error;
 use rs_matter::Matter;
 use std::net::IpAddr;
@@ -60,8 +59,12 @@ pub async fn run_mdns(matter: &Matter<'_>) -> Result<(), Error> {
     run_builtin_mdns(matter).await?;
 
     #[cfg(feature = "mdns-ds")]
-    rs_matter::transport::network::mdns::mdns_windows::MdnsDsResponder::new(matter).run()
-        .await?;
+    {
+
+        use rs_matter::transport::network::mdns::mdns_windows::MdnsDsResponder;
+        MdnsDsResponder::new(matter).run()
+            .await?;
+    }
 
     Ok(())
 }
@@ -78,7 +81,6 @@ async fn run_builtin_mdns(matter: &Matter<'_>) -> Result<(), Error> {
     // Replace with your own network initialization for e.g. `no_std` environments
     #[inline(never)]
     fn initialize_network() -> Result<(Ipv4Addr, Ipv6Addr, u32), Error> {
-        println!("Using builtin mDNS");
         use log::error;
         // use nix::{net::if_::InterfaceFlags, sys::socket::SockaddrIn6};
         use rs_matter::error::ErrorCode;
@@ -128,8 +130,8 @@ async fn run_builtin_mdns(matter: &Matter<'_>) -> Result<(), Error> {
             .map(|iface| iface.name.as_str())
             .collect();
         println!("All interfaces: {:?}", all_names);
-        // let name = "WiFi";  // TODO select right intetrface
-        let name = "Ethernet 2";  // TODO select right intetrface
+        let name = "WiFi";  // TODO select right intetrface
+        // let name = "Ethernet 2";  // TODO select right intetrface
 
         let mut ip = None;
         let mut ipv6 = None;
